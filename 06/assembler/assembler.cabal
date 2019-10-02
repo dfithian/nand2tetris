@@ -1,0 +1,55 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.31.2.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: 11ca8ba62cb174b172c498b80e556b943ddc6662870f6b81f7978f10ca0828a5
+
+name:           assembler
+version:        1.0
+license:        AllRightsReserved
+build-type:     Simple
+
+library
+  exposed-modules:
+      Code
+      Options
+      Parser
+      Types
+  other-modules:
+      Paths_assembler
+  hs-source-dirs:
+      src
+  default-extensions: ConstraintKinds DataKinds DeriveDataTypeable DeriveGeneric EmptyDataDecls FlexibleContexts FlexibleInstances GADTs GeneralizedNewtypeDeriving LambdaCase MultiParamTypeClasses NamedFieldPuns NoImplicitPrelude NoMonomorphismRestriction OverloadedStrings PackageImports PolyKinds QuasiQuotes RankNTypes RecordWildCards ScopedTypeVariables StandaloneDeriving TemplateHaskell TupleSections TypeApplications TypeFamilies TypeOperators ViewPatterns
+  ghc-options: -Wall -Werror -Wredundant-constraints -fwarn-tabs -threaded -O2 -rtsopts -with-rtsopts=-N -with-rtsopts=-T
+  build-depends:
+      attoparsec
+    , base
+    , bytestring
+    , classy-prelude
+    , lens
+    , mtl
+    , optparse-applicative
+    , text
+  default-language: Haskell2010
+
+executable assembler
+  main-is: assembler.hs
+  other-modules:
+      Paths_assembler
+  hs-source-dirs:
+      app
+  default-extensions: ConstraintKinds DataKinds DeriveDataTypeable DeriveGeneric EmptyDataDecls FlexibleContexts FlexibleInstances GADTs GeneralizedNewtypeDeriving LambdaCase MultiParamTypeClasses NamedFieldPuns NoImplicitPrelude NoMonomorphismRestriction OverloadedStrings PackageImports PolyKinds QuasiQuotes RankNTypes RecordWildCards ScopedTypeVariables StandaloneDeriving TemplateHaskell TupleSections TypeApplications TypeFamilies TypeOperators ViewPatterns
+  ghc-options: -Wall -Werror -Wredundant-constraints -fwarn-tabs -threaded -O2 -rtsopts -with-rtsopts=-N -with-rtsopts=-T
+  build-depends:
+      assembler
+    , attoparsec
+    , base
+    , bytestring
+    , classy-prelude
+    , lens
+    , mtl
+    , optparse-applicative
+    , text
+  default-language: Haskell2010

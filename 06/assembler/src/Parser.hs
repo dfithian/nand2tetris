@@ -13,13 +13,13 @@ data ParseError = ParseError Text
 
 instance Exception ParseError
 
-parseFile :: MonadIO m => FilePath -> m [T.Command]
+parseFile :: MonadIO m => FilePath -> m [T.ParsedCommand]
 parseFile fp = readFile fp >>= parseCommands
 
-parseCommands :: MonadIO m => ByteString -> m [T.Command]
+parseCommands :: MonadIO m => ByteString -> m [T.ParsedCommand]
 parseCommands = map catMaybes . traverse parseLine . map (encodeUtf8 . strip) . lines . decodeUtf8
 
-parseLine :: MonadIO m => ByteString -> m (Maybe T.Command)
+parseLine :: MonadIO m => ByteString -> m (Maybe T.ParsedCommand)
 parseLine = runParser command
 
 runParser :: MonadIO m => Parser a -> ByteString -> m a
@@ -71,6 +71,8 @@ parenSymbol = void (string "(") *> (T.Symbol . decodeUtf8 <$> takeWhile1 (not . 
 until :: String -> Parser a -> Parser a
 until s p = p <* void (string $ C8.pack s)
 
+-- This would be more compact if each individual character was parsed: must have
+-- at least one, at most three, and each must be distinct.
 dest :: Parser T.Dest
 dest = choice [ T.DestAMD <$ string "AMD"
               , T.DestAM <$ string "AM"
@@ -125,10 +127,10 @@ jump = choice [ T.JumpGT <$ string "JGT"
               , T.JumpLE <$ string "JLE"
               , T.JumpAny <$ string "JMP" ]
 
-command :: Parser (Maybe T.Command)
-command = spaces *> choice [ Just . T.CommandLabel <$> parenSymbol
-                           , Just . T.CommandLiteral <$> atLiteral
-                           , Just . T.CommandSymbol <$> atSymbol
-                           , map Just $ T.CommandComp <$> until "=" dest <*> comp
-                           , map Just $ T.CommandJump <$> until ";" cond <*> jump
+command :: Parser (Maybe T.ParsedCommand)
+command = spaces *> choice [ Just . T.ParsedCommandLabel <$> parenSymbol
+                           , Just . T.ParsedCommandLiteral <$> atLiteral
+                           , Just . T.ParsedCommandSymbol <$> atSymbol
+                           , map Just $ T.ParsedCommandComp <$> until "=" dest <*> comp
+                           , map Just $ T.ParsedCommandJump <$> until ";" cond <*> jump
                            , Nothing <$ comment ] <* comment

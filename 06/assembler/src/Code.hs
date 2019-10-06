@@ -16,7 +16,6 @@ instance Exception AssemblerError
 
 data AssemblerState = AssemblerState
   { _assemblerStateSymbolTable            :: Map T.Symbol Int
-  , _assemblerStateLabelTable             :: Map T.Symbol Int
   , _assemblerStateVariableAddressCounter :: Int
   , _assemblerStateLabelAddressCounter    :: Int
   } deriving (Eq, Ord, Show)
@@ -28,7 +27,7 @@ baseVariableAddress = 16
 baseLabelAddress = 0
 
 emptyAssemblerState :: AssemblerState
-emptyAssemblerState = AssemblerState knownSymbols mempty baseVariableAddress baseLabelAddress
+emptyAssemblerState = AssemblerState knownSymbols baseVariableAddress baseLabelAddress
 
 nextVariableAddress :: (MonadState AssemblerState m) => m Int
 nextVariableAddress = do
@@ -76,35 +75,44 @@ fillZeroes len str =
     long | long > len   -> drop (long - len) str
     _                   -> str
 
-assemble :: (MonadIO m) => [T.Command] -> m [T.Code]
-assemble commands = flip evalStateT emptyAssemblerState $ do
-  traverse_ assembleLabel commands
-  catMaybes <$> traverse assembleCommand commands
+partitionCommand :: T.ParsedCommand -> Either T.LCommand T.AOrCCommand
+partitionCommand = \ case
+  T.ParsedCommandLabel x -> Left . T.LCommandSymbol $ x
+  T.ParsedCommandSymbol x -> Right . T.AOrCCommandSymbol $ x
+  T.ParsedCommandLiteral x -> Right . T.AOrCCommandLiteral $ x
+  T.ParsedCommandComp x y -> Right $ T.AOrCCommandComp x y
+  T.ParsedCommandJump x y -> Right $ T.AOrCCommandJump x y
 
-assembleLabel :: (MonadIO m, MonadState AssemblerState m) => T.Command -> m ()
+assemble :: (MonadIO m) => [T.ParsedCommand] -> m [T.Code]
+assemble parsedCommands = flip evalStateT emptyAssemblerState $ do
+  let commands = partitionCommand <$> parsedCommands
+      aOrCCommands = rights commands
+  traverse_ assembleLabel commands
+  traverse assembleCommand aOrCCommands
+
+assembleLabel :: (MonadIO m, MonadState AssemblerState m) => Either T.LCommand T.AOrCCommand -> m ()
 assembleLabel = \ case
-  T.CommandLabel x ->
+  Left (T.LCommandSymbol x) ->
     use (assemblerStateSymbolTable . at x) >>= \ case
       Just _ -> throwIO . AssemblerError $ "Already a symbol for " <> tshow x
       Nothing -> do
         address <- currentLabelAddress
         assign (assemblerStateSymbolTable . at x) (Just address)
-  _ -> incLabelAddress
+  Right _ -> incLabelAddress
 
-assembleCommand :: (MonadIO m, MonadState AssemblerState m) => T.Command -> m (Maybe T.Code)
+assembleCommand :: (MonadIO m, MonadState AssemblerState m) => T.AOrCCommand -> m T.Code
 assembleCommand = \ case
-  T.CommandLabel _ -> pure Nothing
-  T.CommandSymbol x -> do
+  T.AOrCCommandSymbol x -> do
     address <- use (assemblerStateSymbolTable . at x) >>= \ case
       Nothing -> do
         address <- nextVariableAddress
         assign (assemblerStateSymbolTable . at x) (Just address)
         pure address
       Just address -> pure address
-    pure . Just . T.Code . fillZeroes 16 . pack . showIntAtBase 2 intToDigit address $ ""
-  T.CommandLiteral (T.Literal i) ->
-    pure . Just . T.Code . fillZeroes 16 . pack . showIntAtBase 2 intToDigit i $ ""
-  T.CommandComp dest comp ->
+    pure . T.Code . fillZeroes 16 . pack . showIntAtBase 2 intToDigit address $ ""
+  T.AOrCCommandLiteral (T.Literal i) ->
+    pure . T.Code . fillZeroes 16 . pack . showIntAtBase 2 intToDigit i $ ""
+  T.AOrCCommandComp dest comp ->
     let destBits = case dest of
           T.DestA   -> "100"
           T.DestD   -> "010"
@@ -142,8 +150,8 @@ assembleCommand = \ case
           T.CompM_D   -> "1000111"
           T.CompDXM   -> "1000000"
           T.CompDOM   -> "1010101"
-    in pure . Just . T.Code $ "111" <> compBits <> destBits <> "000"
-  T.CommandJump cond jump ->
+    in pure . T.Code $ "111" <> compBits <> destBits <> "000"
+  T.AOrCCommandJump cond jump ->
     let condBits = case cond of
           T.CondA -> "0110000" -- CompA
           T.CondD -> "0001100" -- CompD
@@ -151,10 +159,10 @@ assembleCommand = \ case
           T.Cond0 -> "0101010" -- Comp0
         jumpBits = case jump of
           T.JumpEQ  -> "010"
-          T.JumpGT  -> "001"
-          T.JumpGE  -> "011"
-          T.JumpLT  -> "100"
           T.JumpNE  -> "101"
+          T.JumpGT  -> "001"
           T.JumpLE  -> "110"
+          T.JumpLT  -> "100"
+          T.JumpGE  -> "011"
           T.JumpAny -> "111"
-    in pure . Just . T.Code $ "111" <> condBits <> "000" <> jumpBits
+    in pure . T.Code $ "111" <> condBits <> "000" <> jumpBits

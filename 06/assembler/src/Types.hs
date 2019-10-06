@@ -12,6 +12,7 @@ newtype Symbol = Symbol { unSymbol :: Text }
 newtype Literal = Literal { unLiteral :: Int }
   deriving (Eq, Ord, Show)
 
+-- This would be more compact as bit flips for each register.
 data Dest
   = DestA
   | DestD
@@ -59,12 +60,23 @@ data Cond = CondA | CondD | CondM | Cond0
 data Jump = JumpEQ | JumpGT | JumpGE | JumpLT | JumpNE | JumpLE | JumpAny
   deriving (Eq, Ord, Show)
 
-data Command
-  = CommandLabel Symbol
-  | CommandSymbol Symbol
-  | CommandLiteral Literal
-  | CommandComp Dest Comp
-  | CommandJump Cond Jump
+data ParsedCommand
+  = ParsedCommandLabel Symbol
+  | ParsedCommandSymbol Symbol
+  | ParsedCommandLiteral Literal
+  | ParsedCommandComp Dest Comp
+  | ParsedCommandJump Cond Jump
+  deriving (Eq, Ord, Show)
+
+data LCommand
+  = LCommandSymbol Symbol
+  deriving (Eq, Ord, Show)
+
+data AOrCCommand
+  = AOrCCommandSymbol Symbol
+  | AOrCCommandLiteral Literal
+  | AOrCCommandComp Dest Comp
+  | AOrCCommandJump Cond Jump
   deriving (Eq, Ord, Show)
 
 makePrisms ''Symbol
@@ -73,4 +85,6 @@ makePrisms ''Dest
 makePrisms ''Comp
 makePrisms ''Cond
 makePrisms ''Jump
-makePrisms ''Command
+makePrisms ''ParsedCommand
+makePrisms ''LCommand
+makePrisms ''AOrCCommand

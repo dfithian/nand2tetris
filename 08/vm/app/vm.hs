@@ -10,8 +10,6 @@ import Turtle
   , ls
   , splitExtension
   , stat
-  , (<.>)
-  , (</>)
   )
 
 import Code (assemble)
@@ -22,7 +20,7 @@ import qualified Types as T
 main :: IO ()
 main = do
   Opts {..} <- parseArgs
-  (dir, files) <- isDirectory <$> stat optsInput >>= \ case
+  (_dir, files) <- isDirectory <$> stat optsInput >>= \ case
     False ->
       let dir = directory optsInput
           file = filename optsInput
@@ -30,6 +28,6 @@ main = do
         (base, Just "vm") -> pure (dir, [base])
         _                 -> fail $ "Invalid file " <> encodeString optsInput <> " - must have .vm extension"
     True -> (optsInput,) . filter (flip hasExtension "vm") <$> fold (ls optsInput) (Fold (flip (:)) [] id)
-  commands <- forM files $ \ file -> map (pack $ encodeString file,) . parseFile . encodeString $ dir </> file <.> "vm"
+  commands <- forM files $ \ file -> map (pack . encodeString . filename $ file,) . parseFile . encodeString $ file
   code <- mconcat <$> traverse (uncurry assemble) commands
   writeFile (encodeString optsOutput) (encodeUtf8 . unlines . map T.unCode $ code)

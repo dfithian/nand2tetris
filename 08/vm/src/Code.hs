@@ -13,10 +13,10 @@ data VMError = VMError Text
 instance Exception VMError
 
 data VMState = VMState
-  { _vmStateSymbols            :: Map T.Symbol Int
-  , _vmStateCommandNum         :: Int
+  { _vmStateCommandNum         :: Int
   , _vmStateFileIdentifier     :: Text
-  , _vmStateFunctionIdentifier :: Maybe Text
+  , _vmStateFunctionIdentifier :: [Text]
+  , _vmStateReturnIndex        :: Int
   } deriving (Eq, Ord, Show)
 
 data Location
@@ -29,7 +29,7 @@ data Location
 makeLenses ''VMState
 
 incCommandNum :: (MonadState VMState m) => m ()
-incCommandNum = modifying vmStateCommandNum (+ 1)
+incCommandNum = modifying vmStateCommandNum (+1)
 
 getCommandNum :: (MonadState VMState m) => m Int
 getCommandNum = use vmStateCommandNum
@@ -37,34 +37,46 @@ getCommandNum = use vmStateCommandNum
 getFileIdentifier :: (MonadState VMState m) => m Text
 getFileIdentifier = use vmStateFileIdentifier
 
-setFunctionIdentifier :: (MonadState VMState m) => Maybe Text -> m ()
+setFunctionIdentifier :: (MonadState VMState m) => [Text] -> m ()
 setFunctionIdentifier = assign vmStateFunctionIdentifier
 
-getFunctionIdentifier :: (MonadState VMState m) => m (Maybe Text)
+getFunctionIdentifier :: (MonadState VMState m) => m [Text]
 getFunctionIdentifier = use vmStateFunctionIdentifier
 
+incReturnIndex :: (MonadState VMState m) => m ()
+incReturnIndex = modifying vmStateReturnIndex (+1)
+
+getReturnIndex :: (MonadState VMState m) => m Int
+getReturnIndex = use vmStateReturnIndex
+
 emptyVMState :: Text -> VMState
-emptyVMState fileIdentifier = VMState mempty 0 fileIdentifier Nothing
+emptyVMState fileIdentifier = VMState 0 fileIdentifier [] 0
 
 toCode :: [Text] -> [T.Code]
 toCode = map T.Code
 
 getLocation :: (MonadState VMState m) => (T.MemoryLocation, T.Index) -> m Location
 getLocation (loc, T.Index i) = case loc of
-  T.MemoryLocationArgument -> pure $ LocationSymbol (T.Symbol "ARG") (T.Literal i)
-  T.MemoryLocationLocal    -> pure $ LocationSymbol (T.Symbol "LCL") (T.Literal i)
+  T.MemoryLocationArgument -> pure $ LocationSymbol arg (T.Literal i)
+  T.MemoryLocationLocal    -> pure $ LocationSymbol lcl (T.Literal i)
   T.MemoryLocationStatic   -> do
     fileIdentifier <- getFileIdentifier
     pure $ LocationStatic (T.Symbol $ fileIdentifier <> "." <> tshow i)
   T.MemoryLocationConstant -> pure $ LocationLiteral (T.Literal i)
-  T.MemoryLocationThis     -> pure $ LocationSymbol (T.Symbol "THIS") (T.Literal i)
-  T.MemoryLocationThat     -> pure $ LocationSymbol (T.Symbol "THAT") (T.Literal i)
+  T.MemoryLocationThis     -> pure $ LocationSymbol this (T.Literal i)
+  T.MemoryLocationThat     -> pure $ LocationSymbol that (T.Literal i)
   T.MemoryLocationPointer  -> pure $ LocationOffset (T.Symbol "R3") (T.Literal i)
   T.MemoryLocationTemp     -> pure $ LocationOffset (T.Symbol "R5") (T.Literal i)
 
-sp, r13 :: T.Symbol
+sp, r13, r7, r14, arg, lcl, this, that :: T.Symbol
 sp = T.Symbol "SP"
 r13 = T.Symbol "R13"
+r7 = T.Symbol "R7"
+r14 = T.Symbol "R14"
+arg = T.Symbol "ARG"
+lcl = T.Symbol "LCL"
+this = T.Symbol "THIS"
+that = T.Symbol "THAT"
 
 incSym, decSym :: T.Symbol -> [T.Code]
 incSym (T.Symbol s) = toCode ["@" <> s, "M=M+1"]
@@ -82,6 +94,12 @@ shiftD (T.Literal i) = toCode ["@" <> tshow i, "D=D+A"]
 
 shiftA :: T.Literal -> [T.Code]
 shiftA (T.Literal i) = toCode ["@" <> tshow i, "A=D+A"]
+
+shift_D :: T.Literal -> [T.Code]
+shift_D (T.Literal i) = toCode ["@" <> tshow i, "D=D-A"]
+
+shift_A :: T.Literal -> [T.Code]
+shift_A (T.Literal i) = toCode ["@" <> tshow i, "A=D-A"]
 
 loadD :: T.Symbol -> [T.Code]
 loadD (T.Symbol s) = toCode ["@" <> s, "D=A"]
@@ -155,20 +173,69 @@ arithmeticCommand cmd = do
     T.ArithmeticCommandOr  -> binaryOp "|"
     T.ArithmeticCommandNot -> unaryOp "!"
 
+getToLabel :: (MonadState VMState m) => m (T.Symbol -> Text)
+getToLabel = do
+  fileIdentifier <- getFileIdentifier
+  functionIdentifier <- getFunctionIdentifier
+  let prefix = intercalate "." $ fileIdentifier : functionIdentifier
+  pure $ \ (T.Symbol x) -> prefix <> "." <> x
+
 programCommand :: (MonadIO m, MonadState VMState m) => T.ProgramCommand -> m [T.Code]
 programCommand cmd = do
-  toLabel <- (,) <$> getFunctionIdentifier <*> getFileIdentifier >>= \ case
-    (Nothing, fileIdentifier) -> pure $ \ x -> fileIdentifier <> "." <> x
-    (Just functionIdentifier, fileIdentifier) -> pure $ \ x -> fileIdentifier <> "." <> functionIdentifier <> "." <> x
+  toLabel <- getToLabel
   case cmd of
-    T.ProgramCommandLabel (T.Symbol s) -> pure $ toCode ["(" <> toLabel s <> ")"]
-    T.ProgramCommandGoto (T.Symbol s) -> pure $ toCode ["@" <> toLabel s, "0;JMP"]
-    T.ProgramCommandIfGoto (T.Symbol s) -> pure $ decStack <> loadAD sp <> toCode ["@" <> toLabel s, "D;JNE"]
+    T.ProgramCommandLabel s -> pure $ toCode ["(" <> toLabel s <> ")"]
+    T.ProgramCommandGoto s -> pure $ toCode ["@" <> toLabel s, "0;JMP"]
+    T.ProgramCommandIfGoto s -> pure $ decStack <> loadAD sp <> toCode ["@" <> toLabel s, "D;JNE"]
+
+functionCommand :: (MonadIO m, MonadState VMState m) => T.FunctionCommand -> m [T.Code]
+functionCommand = \ case
+  T.FunctionCommandDeclaration s (T.Index i) -> do
+    label <- ($ s) <$> getToLabel
+    let decLabel = toCode ["(" <> label <> ")"]
+    pushes <-  map mconcat . replicateM i . memoryCommand $ T.MemoryCommand T.MemoryOperationPush T.MemoryLocationConstant (T.Index 0)
+    pure $ decLabel <> pushes
+  T.FunctionCommandInvocation s@(T.Symbol name) (T.Index i) -> do
+    lastFunctionIdentifier <- getFunctionIdentifier
+    let functionIdentifier = name : lastFunctionIdentifier
+    setFunctionIdentifier functionIdentifier
+    label <- ($ s) <$> getToLabel
+    returnIndex <- getReturnIndex
+    incReturnIndex
+    let returnLabel = "RETURN_" <> tshow returnIndex
+        pushReturn = loadD (T.Symbol returnLabel) <> loadA sp <> setMD <> incStack
+        pushPointer sym = loadDM sym <> loadA sp <> setMD <> incStack
+        pushLcl = pushPointer lcl
+        pushArg = pushPointer arg
+        pushThis = pushPointer this
+        pushThat = pushPointer that
+        setArg = loadDM sp <> shift_D (T.Literal $ 5 + i) <> assignD arg
+        setLcl = loadDM sp <> assignD lcl
+        goto = toCode ["@" <> label, "0;JMP"]
+        ret = toCode ["(" <> returnLabel <> ")"]
+    pure $ pushReturn <> pushLcl <> pushArg <> pushThis <> pushThat <> setArg <> setLcl <> goto <> ret
+  T.FunctionCommandReturn -> do
+    lastFunctionIdentifier <- getFunctionIdentifier
+    let functionIdentifier = fromMaybe [] $ tailMay lastFunctionIdentifier
+    setFunctionIdentifier functionIdentifier
+    let getLcl = loadDM lcl <> assignD r7
+        getRet = shift_A (T.Literal 5) <> setDM <> assignD r14
+        restoreStack = loadDM arg <> toCode ["@SP", "M=D+1"]
+        restoreFrame sym shift = loadDM r7 <> shift_A (T.Literal shift) <> setDM <> assignD sym
+        restoreThat = restoreFrame that 1
+        restoreThis = restoreFrame this 2
+        restoreArg = restoreFrame arg 3
+        restoreLcl = restoreFrame lcl 4
+        goto = loadA r14 <> toCode ["0;JMP"]
+    popArg <- memoryCommand $ T.MemoryCommand T.MemoryOperationPop T.MemoryLocationArgument (T.Index 0)
+    pure $ getLcl <> getRet <> popArg <> restoreStack <> restoreThat <> restoreThis <> restoreArg <> restoreLcl <> goto
 
 assemble :: (MonadIO m) => Text -> [T.ParsedCommand] -> m [T.Code]
 assemble fileIdentifier parsedCommands = flip evalStateT (emptyVMState fileIdentifier) $ do
   let initStack = loadC (T.Literal 256) <> assignD sp
-  (initStack <>) . mconcat <$> traverse assembleCommand parsedCommands
+  initClass <- functionCommand $ T.FunctionCommandInvocation (T.Symbol "Sys.init") (T.Index 0)
+  commands <- mconcat <$> traverse assembleCommand parsedCommands
+  pure $ initStack <> initClass <> commands
 
 assembleCommand :: (MonadIO m, MonadState VMState m) => T.ParsedCommand -> m [T.Code]
 assembleCommand cmd = do
@@ -177,4 +244,4 @@ assembleCommand cmd = do
     T.ParsedCommandArithmetic arith -> arithmeticCommand arith
     T.ParsedCommandMemory mem       -> memoryCommand mem
     T.ParsedCommandProgram prog     -> programCommand prog
-    _                               -> pure []
+    T.ParsedCommandFunction func    -> functionCommand func

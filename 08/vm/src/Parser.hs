@@ -99,8 +99,8 @@ programCommand = choice
 
 functionCommand :: Parser T.FunctionCommand
 functionCommand = choice
-  [ T.FunctionCommandDeclaration <$ (string "function" <* spaces) <*> symbol <*> index
-  , T.FunctionCommandInvocation <$ (string "call" <* spaces) <*> symbol <*> index
+  [ T.FunctionCommandDeclaration <$ (string "function" <* spaces) <*> (symbol <* spaces) <*> index
+  , T.FunctionCommandInvocation <$ (string "call" <* spaces) <*> (symbol <* spaces) <*> index
   , T.FunctionCommandReturn <$ string "return"
   ]
 

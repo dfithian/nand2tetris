@@ -1,0 +1,57 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.31.2.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: ad88c6a8d57a6e5736c068129421b10a7a92f078d20ad770763be88461002424
+
+name:           vm
+version:        1.0
+license:        AllRightsReserved
+build-type:     Simple
+
+library
+  exposed-modules:
+      Code
+      Options
+      Parser
+      Types
+  other-modules:
+      Paths_vm
+  hs-source-dirs:
+      src
+  default-extensions: ConstraintKinds DataKinds DeriveDataTypeable DeriveGeneric EmptyDataDecls FlexibleContexts FlexibleInstances GADTs GeneralizedNewtypeDeriving LambdaCase MultiParamTypeClasses NamedFieldPuns NoImplicitPrelude NoMonomorphismRestriction OverloadedStrings PackageImports PolyKinds QuasiQuotes RankNTypes RecordWildCards ScopedTypeVariables StandaloneDeriving TemplateHaskell TupleSections TypeApplications TypeFamilies TypeOperators ViewPatterns
+  ghc-options: -Wall -Werror -Wredundant-constraints -fwarn-tabs -threaded -O2 -rtsopts -with-rtsopts=-N -with-rtsopts=-T
+  build-depends:
+      attoparsec
+    , base
+    , bytestring
+    , classy-prelude
+    , lens
+    , mtl
+    , optparse-applicative
+    , text
+    , turtle
+  default-language: Haskell2010
+
+executable vm
+  main-is: vm.hs
+  other-modules:
+      Paths_vm
+  hs-source-dirs:
+      app
+  default-extensions: ConstraintKinds DataKinds DeriveDataTypeable DeriveGeneric EmptyDataDecls FlexibleContexts FlexibleInstances GADTs GeneralizedNewtypeDeriving LambdaCase MultiParamTypeClasses NamedFieldPuns NoImplicitPrelude NoMonomorphismRestriction OverloadedStrings PackageImports PolyKinds QuasiQuotes RankNTypes RecordWildCards ScopedTypeVariables StandaloneDeriving TemplateHaskell TupleSections TypeApplications TypeFamilies TypeOperators ViewPatterns
+  ghc-options: -Wall -Werror -Wredundant-constraints -fwarn-tabs -threaded -O2 -rtsopts -with-rtsopts=-N -with-rtsopts=-T
+  build-depends:
+      attoparsec
+    , base
+    , bytestring
+    , classy-prelude
+    , lens
+    , mtl
+    , optparse-applicative
+    , text
+    , turtle
+    , vm
+  default-language: Haskell2010

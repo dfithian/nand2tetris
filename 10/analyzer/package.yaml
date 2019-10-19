@@ -1,0 +1,66 @@
+name: analyzer
+version: '1.0'
+license: AllRightsReserved
+
+default-extensions:
+  - ConstraintKinds
+  - DataKinds
+  - DeriveDataTypeable
+  - DeriveGeneric
+  - EmptyDataDecls
+  - FlexibleContexts
+  - FlexibleInstances
+  - GADTs
+  - GeneralizedNewtypeDeriving
+  - LambdaCase
+  - MultiParamTypeClasses
+  - NamedFieldPuns
+  - NoImplicitPrelude
+  - NoMonomorphismRestriction
+  - OverloadedStrings
+  - PackageImports
+  - PolyKinds
+  - QuasiQuotes
+  - RankNTypes
+  - RecordWildCards
+  - ScopedTypeVariables
+  - StandaloneDeriving
+  - TemplateHaskell
+  - TupleSections
+  - TypeApplications
+  - TypeFamilies
+  - TypeOperators
+  - ViewPatterns
+
+ghc-options:
+  - -Wall
+  - -Werror
+  - -Wredundant-constraints
+  - -fwarn-tabs
+  - -threaded
+  - -O2
+  - -rtsopts
+  - -with-rtsopts=-N
+  - -with-rtsopts=-T
+
+dependencies:
+  - attoparsec
+  - base
+  - classy-prelude
+  - lens
+  - mtl
+  - optparse-applicative
+  - system-filepath
+  - text
+  - turtle
+  - xml-conduit
+
+library:
+  source-dirs: src
+
+executables:
+  analyzer:
+    main: analyzer.hs
+    source-dirs: app
+    dependencies:
+      - analyzer

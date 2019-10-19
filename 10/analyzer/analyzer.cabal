@@ -1,0 +1,60 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.31.2.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: e4f77efa9d524753b2450e3f75840bd02a3ec94efccf188ced351c7d0bf1673c
+
+name:           analyzer
+version:        1.0
+license:        AllRightsReserved
+build-type:     Simple
+
+library
+  exposed-modules:
+      Code
+      Options
+      Tokenizer
+      Translate
+      Types
+  other-modules:
+      Paths_analyzer
+  hs-source-dirs:
+      src
+  default-extensions: ConstraintKinds DataKinds DeriveDataTypeable DeriveGeneric EmptyDataDecls FlexibleContexts FlexibleInstances GADTs GeneralizedNewtypeDeriving LambdaCase MultiParamTypeClasses NamedFieldPuns NoImplicitPrelude NoMonomorphismRestriction OverloadedStrings PackageImports PolyKinds QuasiQuotes RankNTypes RecordWildCards ScopedTypeVariables StandaloneDeriving TemplateHaskell TupleSections TypeApplications TypeFamilies TypeOperators ViewPatterns
+  ghc-options: -Wall -Werror -Wredundant-constraints -fwarn-tabs -threaded -O2 -rtsopts -with-rtsopts=-N -with-rtsopts=-T
+  build-depends:
+      attoparsec
+    , base
+    , classy-prelude
+    , lens
+    , mtl
+    , optparse-applicative
+    , system-filepath
+    , text
+    , turtle
+    , xml-conduit
+  default-language: Haskell2010
+
+executable analyzer
+  main-is: analyzer.hs
+  other-modules:
+      Paths_analyzer
+  hs-source-dirs:
+      app
+  default-extensions: ConstraintKinds DataKinds DeriveDataTypeable DeriveGeneric EmptyDataDecls FlexibleContexts FlexibleInstances GADTs GeneralizedNewtypeDeriving LambdaCase MultiParamTypeClasses NamedFieldPuns NoImplicitPrelude NoMonomorphismRestriction OverloadedStrings PackageImports PolyKinds QuasiQuotes RankNTypes RecordWildCards ScopedTypeVariables StandaloneDeriving TemplateHaskell TupleSections TypeApplications TypeFamilies TypeOperators ViewPatterns
+  ghc-options: -Wall -Werror -Wredundant-constraints -fwarn-tabs -threaded -O2 -rtsopts -with-rtsopts=-N -with-rtsopts=-T
+  build-depends:
+      analyzer
+    , attoparsec
+    , base
+    , classy-prelude
+    , lens
+    , mtl
+    , optparse-applicative
+    , system-filepath
+    , text
+    , turtle
+    , xml-conduit
+  default-language: Haskell2010

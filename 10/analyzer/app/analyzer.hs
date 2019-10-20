@@ -14,9 +14,11 @@ import Turtle
   )
 
 import Code (analyze)
+import Command (showCommands)
 import Options (Opts (Opts), optsInput, optsOutput, parseArgs)
 import Tokenizer (tokenizeFile)
 import Translate (translate)
+import qualified Types as T
 
 main :: IO ()
 main = do
@@ -33,4 +35,4 @@ main = do
     code <- analyze tokens
     commands <- translate code
     let outputFile = encodeString $ optsOutput </> replaceExtension (filename file) "vm"
-    writeFile outputFile . encodeUtf8 . unlines $ tshow <$> commands
+    writeFile outputFile . encodeUtf8 . unlines . map T.unCode . showCommands . reverse $ commands

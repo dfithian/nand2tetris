@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: e4f77efa9d524753b2450e3f75840bd02a3ec94efccf188ced351c7d0bf1673c
+-- hash: 477d85da6156f3c68010c9f732eaec8aeb806cb85535d0d2e5a6dd680ac83d4f
 
 name:           analyzer
 version:        1.0
@@ -14,6 +14,7 @@ build-type:     Simple
 library
   exposed-modules:
       Code
+      Command
       Options
       Tokenizer
       Translate

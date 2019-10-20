@@ -27,7 +27,6 @@ data SymbolInfo = SymbolInfo
   , _symbolInfoIndex :: Int
   } deriving (Eq, Ord, Show)
 
--- FIXME need to preserve insert order
 data TranslateState = TranslateState
   { _translateStateClassSymbolTable      :: Map T.Identifier SymbolInfo
   , _translateStateSubroutineSymbolTable :: Map T.Identifier SymbolInfo
@@ -71,10 +70,15 @@ resetSubroutineSymbolTable s = do
   assign translateStateSubroutineSymbolTable mempty
   assign translateStateSubroutine (Just s)
 
-newSymbol :: (MonadState TranslateState m) => T.Identifier -> T.FieldTypePlus -> SymbolKind -> m ()
+newSymbol :: (MonadState TranslateState m) => T.Identifier -> T.FieldType -> SymbolKind -> m ()
 newSymbol i typ kind = do
   idx <- nextIndex
-  let info = SymbolInfo kind (tshow typ) idx -- FIXME
+  let typeName = case typ of
+        T.FieldTypeInt -> "int"
+        T.FieldTypeChar -> "char"
+        T.FieldTypeBool -> "boolean"
+        T.FieldTypeClass (T.ClassName (T.Identifier className)) -> className
+      info = SymbolInfo kind typeName idx
   case kind of
     SymbolKindStatic -> modifying translateStateClassSymbolTable (insertMap i info)
     SymbolKindField  -> modifying translateStateClassSymbolTable (insertMap i info)
@@ -254,18 +258,20 @@ translateClass :: (MonadIO m, MonadState TranslateState m) => T.Class -> m ()
 translateClass (T.Class _ classVarDecs subroutineDecs) = do
   forM_ classVarDecs $ \ (T.ClassVarDec typ fieldType names) ->
     forM_ names $ \ (T.VarName name) -> case typ of
-      T.ClassVarDecTypeField  -> newSymbol name (T.FieldTypePlusReg fieldType) SymbolKindField
-      T.ClassVarDecTypeStatic -> newSymbol name (T.FieldTypePlusReg fieldType) SymbolKindStatic
+      T.ClassVarDecTypeField  -> newSymbol name fieldType SymbolKindField
+      T.ClassVarDecTypeStatic -> newSymbol name fieldType SymbolKindStatic
   forM_ subroutineDecs $ \ (T.SubroutineDec typ _ (T.SubroutineName name) fieldTypesVarNames varDecs statements) -> do
     resetSubroutineSymbolTable (T.unIdentifier name)
     case typ of
-      T.SubroutineDecTypeMethod -> newSymbol (T.Identifier "this") T.FieldTypePlusVoid SymbolKindVar -- FIXME
+      T.SubroutineDecTypeMethod -> do
+        className <- use translateStateClass
+        newSymbol (T.Identifier "this") (T.FieldTypeClass . T.ClassName . T.Identifier $ className) SymbolKindVar
       _ -> pure ()
     forM_ fieldTypesVarNames $ \ (fieldType, (T.VarName varName)) ->
-      newSymbol varName (T.FieldTypePlusReg fieldType) SymbolKindArg
+      newSymbol varName fieldType SymbolKindArg
     forM_ varDecs $ \ (T.VarDec fieldType vars) ->
       forM_ vars $ \ (T.VarName varName) ->
-        newSymbol varName (T.FieldTypePlusReg fieldType) SymbolKindVar
+        newSymbol varName fieldType SymbolKindVar
     varsCount <- varCount translateStateSubroutineSymbolTable _SymbolKindVar
     writeDeclaration (T.Sym $ T.unIdentifier name) $ T.Index varsCount
     case typ of
